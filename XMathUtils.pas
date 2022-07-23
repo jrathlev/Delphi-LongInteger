@@ -15,7 +15,7 @@
 
    Version 1.0 : Turbo Pascal, July 1989  (see unit XLongInt)
    Version 2.0 : Delphi 10, June 2018
-
+   last modified: July 2022
   *)
 
 unit XMathUtils;
@@ -78,6 +78,7 @@ type
 
 function XDivMod (const ValM,ValD : TXLongWord; var ValR : TXLongWord) : TXLongWord;
 function XFactorial (const Value : cardinal) : TXLongWord;
+function XBinomial (n,k : cardinal) : TXLongWord;
 function XPower (const x : TXLongWord; n : cardinal) : TXLongWord;
 
 implementation
@@ -540,6 +541,20 @@ function XFactorial (const Value : cardinal) : TXLongWord;
 begin
   if Value<1 then Result:=1
   else Result:=Value*XFactorial(Value-1);
+  end;
+
+// sample value
+// (567|123) = 3247726570 0593035316 1228465215 5160703700 4581235132 0074048742 1912694467 0389413106 0045931597 6888117015 6172405583 8575252758 008856000
+function XBinomial (n,k : cardinal) : TXLongWord;
+var
+  i : cardinal;
+begin
+  if 2*k>n then k:=n-k;
+  if k=0 then Result:=1
+  else begin
+    Result:=n;
+    for i:=2 to k do Result:=Result*(n+1-i) div i;
+    end;
   end;
 
 (* Potenz x^n *)
