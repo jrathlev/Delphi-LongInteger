@@ -13,18 +13,20 @@ program DigPiX;
 {$R *.res}
 
 uses
-  System.SysUtils, System.Math,
-  XMathUtils in 'XMathUtils.pas';
+  System.SysUtils, System.Math, ExtSysUtils, XMathUtils;
 
 const
   nhx = 12;
   ntp = 25;
+  OutName = 'pi.out';
 
 var
   pid,C16P8 : extended;
   tp  : array [1..ntp] of extended;
   i,j,k,n,ic,nd : longint;
   xi,xp,xf  : TXLongWord;
+  fo        : TextFile;
+  stat      : array[0..9] of integer;
 
 (* -----------------------------------------------------------------
 (* This returns the first nx hex digits of the fraction of x. *)
@@ -133,11 +135,16 @@ begin
     xp:=xp shl (31-j);
     inc(k);
     end;
+  for i:=0 to 9 do stat[i]:=0;
+  AssignFile(fo,outname); rewrite(fo);
   write ('      3,');
+  write (fo,'3.');
   for i:=1 to nd do begin
     xp:=10*xp;
     if xp.XLen=k then ic:=0 else ic:=xp.XVal[k];
     xp.XLen:=k;
+    inc(stat[ic]);
+    write (fo,chr(ic+48));
     write (chr(ic+48));
     if (i mod 50 =0) and (i<nd) then begin
       writeln;
@@ -145,6 +152,11 @@ begin
       end
     else if i mod 10=0 then write(' ');
     end;
+  CloseFile(fo);
   writeln;
-  readln;
+//  writeln ('Statistik:');
+//  for i:=0 to 9 do write (i:6);
+//  writeln;
+//  for i:=0 to 9 do write (stat[i]:6);
+  WaitForAnyKey;
 end.
