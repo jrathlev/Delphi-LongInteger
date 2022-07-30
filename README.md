@@ -9,7 +9,7 @@ the source code \(see
 Beyond that the following functions are supported:
 
 - Checks for zero, even and odd values
-- Conversions to decimal and hex strings
+- Conversions from and to decimal and to hex strings
 - Functions similar to DivMod and MulDiv
 - Functions to compute power and square root
 - Functions to compute factorials and binomials
