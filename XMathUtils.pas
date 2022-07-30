@@ -41,17 +41,21 @@ type
     XVal : array of cardinal;
   private
     procedure Assign (const Value : TXLongWord);
-    procedure Release;
+    procedure SetToZero;
     procedure ShiftLeft;
     procedure ShiftRight;
     procedure Normalize;
   public
-    constructor Create (Value : integer);
+    constructor Create (Value : uint64);
+    class operator Implicit (Value : cardinal) : TXLongWord;
     class operator Implicit (Value : integer) : TXLongWord;
     class operator Implicit (Value : int64) : TXLongWord;
+    class operator Implicit (Value : uint64) : TXLongWord;
     class operator Implicit (Value : double) : TXLongWord;
     class operator Explicit (Value : TXLongWord) : integer;
+    class operator Explicit (Value : TXLongWord) : cardinal;
     class operator Explicit (Value : TXLongWord) : int64;
+    class operator Explicit (Value : TXLongWord) : uint64;
     class operator Explicit (Value : TXLongWord) : double;
     class operator Inc (const Value : TXLongWord) : TXLongWord;
     class operator Dec (const Value : TXLongWord) : TXLongWord;
@@ -74,22 +78,27 @@ type
     function IsOdd : boolean;
     function ToString (GroupSep : char = #0) : string;
     function ToHex : string;
+    function High : cardinal;
     end;
 
 function XDivMod (const ValM,ValD : TXLongWord; var ValR : TXLongWord) : TXLongWord;
+function XMulDiv (const Value,Numerator,Denominator : TXLongWord) : TXLongWord;
+function XPower (const x : TXLongWord; n : cardinal) : TXLongWord;
+function XSqrt (Value :  TXLongWord) : TXLongWord;
 function XFactorial (const Value : cardinal) : TXLongWord;
 function XBinomial (n,k : cardinal) : TXLongWord;
-function XPower (const x : TXLongWord; n : cardinal) : TXLongWord;
 
+// ----------------------------------------------------------------
 implementation
 
 uses System.SysUtils, System.SysConst;
 
 const
-  XHBit = $80000000;
-  XMask = $7FFFFFFF;
-  MaxInt64 =$7FFFFFFFFFFFFFFF;
-  FFakInt64 = 1E18;
+  XHBit       = $80000000;
+  XMask       = $7FFFFFFF;
+  MaxCardinal = $FFFFFFFF;
+  MaxInt64    = $7FFFFFFFFFFFFFFF;
+  MaxUInt64   = $FFFFFFFFFFFFFFFF;
 
 var
   XFakInt64 : TXLongWord;
@@ -99,7 +108,7 @@ begin
   raise EZeroDivide.Create(SDivByZero);
   end;
 
-constructor TXLongWord.Create (Value : integer);
+constructor TXLongWord.Create (Value : uint64);
 begin
   self:=Value;
   end;
@@ -113,88 +122,9 @@ begin
   for i:=0 to XLen-1 do XVal[i]:=Value.XVal[i];
   end;
 
-procedure TXLongWord.Release;
+procedure TXLongWord.SetToZero;
 begin
   XLen:=0; XVal:=nil;
-  end;
-
-class operator TXLongWord.Implicit(Value : integer) : TXLongWord;
-begin
-  if Value<=0 then Result.XLen:=0
-  else with Result do begin
-    XLen:=1; SetLength(XVal,XLen); XVal[0]:=Value;
-    end
-  end;
-
-class operator TXLongWord.Implicit(Value : int64) : TXLongWord;
-begin
-  if Value<=0 then Result.XLen:=0
-  else with Result do begin
-    XLen:=3; SetLength(XVal,XLen);
-    XVal[0]:=Value and XMask;
-    Value:=Value shr 31;
-    XVal[1]:=Value and XMask;
-    Value:=Value shr 31;
-    XVal[2]:=Value;
-    Normalize;
-    end;
-  end;
-
-class operator TXLongWord.Implicit (Value : double) : TXLongWord;
-var
-  m : int64;
-  n : integer;
-begin
-  if Value<0.5 then Result.XLen:=0
-  else begin
-    Value:=Value+0.5; // round
-    n:=Value.Exp-1075; m:=Value.Mantissa;
-    Result:=m;
-    if n<0 then Result:=Result shr (-n)
-    else if n>0 then Result:=Result shl n;
-    end;
-  end;
-
-class operator TXLongWord.Explicit (Value : TXLongWord) : integer;
-begin
-  with Value do begin
-    if XLen>1 then Result:=-1
-    else if XLen=1 then Result:=XVal[0]
-    else Result:=0;
-    end;
-  end;
-
-class operator TXLongWord.Explicit (Value : TXLongWord) : int64;
-var
-  i : integer;
-begin
-  if Value>MaxInt64 then Result:=-1
-  else with Value do begin
-    Result:=0;
-    for i:=XLen-1 downto 0 do Result:=Result shl 31+XVal[i];
-    end;
-  end;
-
-class operator TXLongWord.Explicit (Value : TXLongWord) : double;
-var
-  m,n : integer;
-begin
-  Result:=0;
-  with Value do if not IsZero then begin
-    m:=XVal[XLen-1];
-    n:=31*XLen-52;
-    while m>0 do begin
-      m:=m shl 1; dec(n);
-      end;
-    if n<0 then Value:=Value shl (-n)
-    else if n>0 then begin
-      Value:=Value shr (n-1);
-      if Value.XVal[0] and 1 <>0 then inc(Value.XVal[0]);
-      Value:=Value shr 1;
-      end;
-    Result.Exp:=n+1075;
-    Result.Frac:=int64(Value) and $FFFFFFFFFFFFF;
-    end;
   end;
 
 procedure TXLongWord.ShiftLeft;
@@ -235,7 +165,7 @@ begin
 
 procedure TXLongWord.Normalize;
 begin
-  while (XVal[XLen-1]=0) and (XLen>0) do dec(XLen) ;
+  while (XVal[XLen-1]=0) and (XLen>0) do dec(XLen);
   SetLength(XVal,XLen);
   end;
 
@@ -249,6 +179,113 @@ function TXLongWord.IsOdd : boolean;
 begin
   if XLen=0 then Result:=false
   else Result:=(XVal[0] and 1)=1;
+  end;
+
+// ----------------------------------------------------------------
+class operator TXLongWord.Implicit(Value : cardinal) : TXLongWord;
+begin
+  Result:=uint64(Value);
+  end;
+
+class operator TXLongWord.Implicit(Value : integer) : TXLongWord;
+begin
+  if Value<=0 then Result.SetToZero
+  else with Result do begin
+    XLen:=1; SetLength(XVal,XLen); XVal[0]:=Value;
+    end
+  end;
+
+class operator TXLongWord.Implicit(Value : uint64) : TXLongWord;
+begin
+  with Result do begin
+    XLen:=3; SetLength(XVal,XLen);
+    XVal[0]:=Value and XMask;
+    Value:=Value shr 31;
+    XVal[1]:=Value and XMask;
+    Value:=Value shr 31;
+    XVal[2]:=Value;
+    Normalize;
+    end;
+  end;
+
+class operator TXLongWord.Implicit(Value : int64) : TXLongWord;
+begin
+  if Value<=0 then Result.SetToZero
+  else Result:=uint64(Value);
+  end;
+
+class operator TXLongWord.Implicit (Value : double) : TXLongWord;
+var
+  m : int64;
+  n : integer;
+begin
+  if Value<0.5 then Result.SetToZero
+  else begin
+    Value:=Value+0.5; // round
+    n:=Value.Exp-1075; m:=Value.Mantissa;
+    Result:=m;
+    if n<0 then Result:=Result shr (-n)
+    else if n>0 then Result:=Result shl n;
+    end;
+  end;
+
+class operator TXLongWord.Explicit (Value : TXLongWord) : cardinal;
+var
+  i : integer;
+begin
+  if Value>MaxCardinal then Result:=MaxCardinal
+  else with Value do begin
+    Result:=0;
+    for i:=XLen-1 downto 0 do Result:=Result shl 31+XVal[i];
+    end;
+  end;
+
+class operator TXLongWord.Explicit (Value : TXLongWord) : integer;
+begin
+  with Value do begin
+    if XLen>1 then Result:=-1
+    else if XLen=1 then Result:=XVal[0]
+    else Result:=0;
+    end;
+  end;
+
+class operator TXLongWord.Explicit (Value : TXLongWord) : uint64;
+var
+  i : integer;
+begin
+  if Value>MaxUInt64 then Result:=MaxUInt64
+  else with Value do begin
+    Result:=0;
+    for i:=XLen-1 downto 0 do Result:=Result shl 31+XVal[i];
+    end;
+  end;
+
+class operator TXLongWord.Explicit (Value : TXLongWord) : int64;
+begin
+  if Value>MaxInt64 then Result:=-1
+  else Result:=uint64(Value);
+  end;
+
+class operator TXLongWord.Explicit (Value : TXLongWord) : double;
+var
+  m,n : integer;
+begin
+  Result:=0;
+  with Value do if not IsZero then begin
+    m:=XVal[XLen-1];
+    n:=31*XLen-52;
+    while m>0 do begin
+      m:=m shl 1; dec(n);
+      end;
+    if n<0 then Value:=Value shl (-n)
+    else if n>0 then begin
+      Value:=Value shr (n-1);
+      if Value.XVal[0] and 1 <>0 then inc(Value.XVal[0]);
+      Value:=Value shr 1;
+      end;
+    Result.Exp:=n+1075;
+    Result.Frac:=int64(Value) and $FFFFFFFFFFFFF;
+    end;
   end;
 
 class operator TXLongWord.Inc (const Value : TXLongWord) : TXLongWord;
@@ -380,9 +417,7 @@ var
   cy    : cardinal;
 begin
   with Result do begin
-    if ValL<ValR then begin
-      XLen:=0; XVal:=nil;
-      end
+    if ValL<ValR then SetToZero
     else begin
       XLen:=ValL.XLen; SetLength(XVal,XLen);
       cy:=0;  // carry
@@ -415,7 +450,7 @@ begin
     if (b.XVal[0] and 1)=1 then Result:=Result+a;
     a.ShiftLeft; b.ShiftRight;
     end;
-  a.Release; b.Release;
+  a.SetToZero; b.SetToZero;
   end;
 
 class operator TXLongWord.IntDivide (const ValL,ValR : TXLongWord) : TXLongWord;
@@ -436,7 +471,7 @@ begin
       a:=a-b; inc(Result);
       end;
     end;
-  a.Release; b.Release;
+  a.SetToZero; b.SetToZero;
   end;
 
 class operator TXLongWord.Divide (const ValL,ValR : TXLongWord) : TXLongWord;
@@ -459,7 +494,7 @@ begin
     b.ShiftRight;
     if b<=Result then Result:=Result-b;
     end;
-  b.Release;
+  b.SetToZero;
   end;
 
 class operator TXLongWord.LeftShift (const Value : TXLongWord; Shift : cardinal) : TXLongWord;
@@ -478,6 +513,7 @@ begin
   for i:=1 to Shift do Result.ShiftRight;
   end;
 
+// ----------------------------------------------------------------
 function TXLongWord.ToString (GroupSep : char) : string;
 var
   a,b,c : TXLongWord;
@@ -493,7 +529,7 @@ begin
       if (GroupSep<>#0) and (n mod 3=2) then Result:=GroupSep+Result;
       inc(n);
       until a.XLen=0;
-    a.Release; b.Release; c.Release;
+    a.SetToZero; b.SetToZero; c.SetToZero;
     end;
   end;
 
@@ -510,10 +546,19 @@ begin
       if c<10 then Result:=chr(byte(c)+48)+Result
       else Result:=chr(byte(c)+55)+Result;
       until a.XLen=0;
-    a.Release; b.Release; c.Release;
+    a.SetToZero; b.SetToZero; c.SetToZero;
     end;
   end;
 
+// return highest word
+function TXLongWord.High : cardinal;
+begin
+  if XLen=0 then Result:=0
+  else Result:=XVal[XLen-1];
+  end;
+
+// ----------------------------------------------------------------
+// Division with remainder
 function XDivMod (const ValM,ValD : TXLongWord; var ValR : TXLongWord) : TXLongWord;
 var
   a,b : TXLongWord;
@@ -532,7 +577,13 @@ begin
       a:=a-b; inc(Result);
       end;
     end;
-  ValR.Assign(a); a.Release; b.Release;
+  ValR.Assign(a); a.SetToZero; b.SetToZero;
+  end;
+
+// similar to Winapi.Windows.MulDiv
+function XMulDiv (const Value,Numerator,Denominator : TXLongWord) : TXLongWord;
+begin
+  Result:=Value*Numerator div Denominator;
   end;
 
 // sample value:
@@ -544,7 +595,7 @@ begin
   end;
 
 // sample value
-// (567|123) = 3247726570 0593035316 1228465215 5160703700 4581235132 0074048742 1912694467 0389413106 0045931597 6888117015 6172405583 8575252758 008856000
+// (567|123) = 247726570 0593035316 1228465215 5160703700 4581235132 0074048742 1912694467 0389413106 0045931597 6888117015 6172405583 8575252758 008856000
 function XBinomial (n,k : cardinal) : TXLongWord;
 var
   i : cardinal;
@@ -557,7 +608,7 @@ begin
     end;
   end;
 
-(* Potenz x^n *)
+// computes x^n
 function XPower (const x : TXLongWord; n : cardinal) : TXLongWord;
 var
   a   : TXLongWord;
@@ -568,7 +619,61 @@ begin
     n:=n shr 1;
     if n>0 then a:=a*a;
     end;
-  a.Release;
+  a.SetToZero;
+  end;
+
+// Long Integer square root
+// refer to: http://www.azillionmonkeys.com/qed/ulerysqroot.pdf
+function XSqrt (Value : TXLongWord) : TXLongWord;
+var
+  j,n : integer;
+  tmp,sum : TXLongWord;
+const
+  XSqCarry = $60000000;
+  XSqMask  = $1FFFFFFF;
+
+  // Shift Value 2 bits left, add carry to tmp
+  procedure ShiftLeft2 (var Value,Temp : TXLongWord);
+  var
+    n : cardinal;
+  begin
+    n:=(Value.High and XSqCarry) shr 29;
+    with Temp do begin
+      if XLen=0 then begin
+        XLen:=1; SetLength(XVal,XLen); XVal[0]:=n;
+        end
+      else begin
+        ShiftLeft; ShiftLeft;
+        XVal[0]:=XVal[0]+n;
+        end;
+      end;
+    with Value do XVal[XLen-1]:=XVal[XLen-1] and XSqMask;
+    Value:=Value shl 2;
+    end;
+
+begin
+  Result:=0;
+  if not Value.IsZero then begin
+    with Value do begin
+      Normalize;
+      if XLen and 1 <>0 then begin       // needs even number of bytes
+        inc(XLen); SetLength(XVal,XLen); XVal[XLen-1]:=0;
+        end;
+      n:=31*XLen div 2;
+      end;
+    tmp:=0;
+    for j:=1 to n do begin
+      ShiftLeft2(Value,tmp);
+      Result:=Result shl 1;
+      sum:=Result shl 1 +1;
+      if sum<=tmp then begin
+        tmp:=tmp-sum;
+        Result:=Result+1;
+        end;
+      end;
+    if 2*tmp>=sum then Result:=Result+1;  // round
+    tmp.SetToZero; sum.SetToZero;
+    end;
   end;
 
 initialization
