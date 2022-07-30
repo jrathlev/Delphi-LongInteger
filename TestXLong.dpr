@@ -23,12 +23,12 @@ program TestXLong;
 {$R *.res}
 
 uses
-  System.SysUtils,
-  XMathUtils in 'XMathUtils.pas';
+  System.SysUtils, ExtSysUtils, XMathUtils;
 
 var
   xi,yi,si,qi,ri : TXLongWord;
-  k : int64;
+  n,k : cardinal;
+  kk : int64;
   x,y : double;
 begin
   xi:=1234567890;
@@ -41,9 +41,9 @@ begin
   y:=double(qi/3);
   writeln(Format('Double:   %s',[y.ToString]));
 
-  k:=int64(xi*yi);
-  qi:=k;
-  writeln('Int64 :  ',k);
+  kk:=int64(xi*yi);
+  qi:=kk;
+  writeln('Int64 :  ',kk);
   writeln('XLong :  ',qi.ToString);
   writeln('         ',qi.ToHex);
   qi:=qi shl 32;
@@ -54,8 +54,23 @@ begin
   si:=XDivMod(si,yi,ri);
   writeln('         ',si.ToString);
   writeln('         ',ri.ToString);
-  si:=XFactorial(100);
-  writeln('Fak(90)= ',si.ToString(' '));
-  readln;
+
+  k:=4;
+  yi:=XPower(xi,k);
+  writeln(Format('Power: %s^%u = %s',[xi.ToString,k,yi.ToString]));
+
+  si:=XSqrt(yi);
+  writeln(Format('Sqrt(%s) = %s',[yi.ToString,si.ToString]));
+  yi:=XSqrt(si);
+  writeln(Format('Sqrt(%s) = %s',[si.ToString,yi.ToString]));
+
+  k:=85;
+  si:=XFactorial(k);
+  writeln(Format('Fak(%u)= %s',[k,si.ToString(' ')]));
+
+  n:=567; k:=123;
+  writeln(Format('Binomial: (%u|%u) = %s',[n,k,XBinomial(n,k).ToString(' ')]));
+
+  WaitForAnyKey;
   end.
 
