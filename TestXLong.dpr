@@ -30,7 +30,13 @@ var
   n,k : cardinal;
   kk : int64;
   x,y : double;
+  s   : string;
 begin
+  write('Enter number: '); readln(s);
+  xi:=StrToXLong(s);
+  writeln('XLong :  ',xi.ToString);
+  writeln;
+
   xi:=1234567890;
   yi:=0987654321;
   x:=9.223372333333337e125;
@@ -54,6 +60,7 @@ begin
   si:=XDivMod(si,yi,ri);
   writeln('         ',si.ToString);
   writeln('         ',ri.ToString);
+  writeln;
 
   k:=4;
   yi:=XPower(xi,k);
@@ -63,6 +70,7 @@ begin
   writeln(Format('Sqrt(%s) = %s',[yi.ToString,si.ToString]));
   yi:=XSqrt(si);
   writeln(Format('Sqrt(%s) = %s',[si.ToString,yi.ToString]));
+  writeln;
 
   k:=85;
   si:=XFactorial(k);

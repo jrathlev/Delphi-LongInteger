@@ -76,10 +76,13 @@ type
     function IsZero : boolean;
     function IsEven : boolean;
     function IsOdd : boolean;
+    function High : cardinal;
     function ToString (GroupSep : char = #0) : string;
     function ToHex : string;
-    function High : cardinal;
     end;
+
+function TryStrToXLong (const s : string; var Value : TXLongWord) : boolean;
+function StrToXLong (const s : string) : TXLongWord;
 
 function XDivMod (const ValM,ValD : TXLongWord; var ValR : TXLongWord) : TXLongWord;
 function XMulDiv (const Value,Numerator,Denominator : TXLongWord) : TXLongWord;
@@ -91,7 +94,7 @@ function XBinomial (n,k : cardinal) : TXLongWord;
 // ----------------------------------------------------------------
 implementation
 
-uses System.SysUtils, System.SysConst;
+uses System.SysUtils, System.SysConst, System.Character;
 
 const
   XHBit       = $80000000;
@@ -100,12 +103,14 @@ const
   MaxInt64    = $7FFFFFFFFFFFFFFF;
   MaxUInt64   = $FFFFFFFFFFFFFFFF;
 
-var
-  XFakInt64 : TXLongWord;
-
 procedure ZeroDivideError;
 begin
   raise EZeroDivide.Create(SDivByZero);
+  end;
+
+procedure ConvertError (const s : string);
+begin
+  raise EConvertError.Create(Format(SInvalidInteger,[s]));
   end;
 
 constructor TXLongWord.Create (Value : uint64);
@@ -513,6 +518,13 @@ begin
   for i:=1 to Shift do Result.ShiftRight;
   end;
 
+// return highest word
+function TXLongWord.High : cardinal;
+begin
+  if XLen=0 then Result:=0
+  else Result:=XVal[XLen-1];
+  end;
+
 // ----------------------------------------------------------------
 function TXLongWord.ToString (GroupSep : char) : string;
 var
@@ -550,11 +562,23 @@ begin
     end;
   end;
 
-// return highest word
-function TXLongWord.High : cardinal;
+// ----------------------------------------------------------------
+function TryStrToXLong (const s : string; var Value : TXLongWord) : boolean;
+var
+  i,n : integer;
 begin
-  if XLen=0 then Result:=0
-  else Result:=XVal[XLen-1];
+  n:=length(s); Value:=0;
+  Result:=n>0;
+  if Result then for i:=1 to n do begin
+    Result:=IsNumber(s[i]);
+    if Result then Value:=10*Value+StrToInt(s[i])
+    else Break;
+    end;
+  end;
+
+function StrToXLong (const s : string) : TXLongWord;
+begin
+  if not TryStrToXLong(s,Result) then ConvertError(s);
   end;
 
 // ----------------------------------------------------------------
@@ -586,6 +610,7 @@ begin
   Result:=Value*Numerator div Denominator;
   end;
 
+// ----------------------------------------------------------------
 // sample value:
 // 85! = 2817104114 3805502769 4947944226 0611594800 5663433057 4206405101 9127525600 2615979593 3451040286 4523409240 1827512320 0000000000 000000000
 function XFactorial (const Value : cardinal) : TXLongWord;
@@ -608,6 +633,7 @@ begin
     end;
   end;
 
+// ----------------------------------------------------------------
 // computes x^n
 function XPower (const x : TXLongWord; n : cardinal) : TXLongWord;
 var
@@ -676,7 +702,4 @@ begin
     end;
   end;
 
-initialization
-  XFakInt64:=1000000000;
-  XFakInt64:=XFakInt64*1000000000;
 end.
