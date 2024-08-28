@@ -13,13 +13,35 @@ program DigPiX;
 {$R *.res}
 
 uses
-  System.SysUtils, System.Math, ExtSysUtils, XMathUtils;
+  System.SysUtils, Winapi.Windows, System.Math, XMathUtils;
 
 const
   nhx = 12;
   ntp = 25;
   OutName = 'pi.out';
 
+{ --------------------------------------------------------------- }
+// read key from keyboard
+function ReadKey : Word;
+var
+  nRead : Cardinal;
+  Hdl   : THandle;
+  Rec   : TInputRecord;
+begin
+  FlushConsoleInputBuffer(STD_INPUT_HANDLE);
+  Hdl := GetStdHandle(STD_INPUT_HANDLE);
+  repeat
+    ReadConsoleInput(Hdl,Rec,1,nRead);
+    until (Rec.EventType=KEY_EVENT) and (nRead=1) and (Rec.Event.KeyEvent.bKeyDown);
+  Result := Rec.Event.KeyEvent.wVirtualKeyCode;
+  end;
+
+procedure WaitForAnyKey;
+begin
+  write('Strike any key to continue ...'); readkey; writeln;
+  end;
+
+{ --------------------------------------------------------------- }
 var
   pid,C16P8 : extended;
   tp  : array [1..ntp] of extended;
