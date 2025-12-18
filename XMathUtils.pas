@@ -15,7 +15,7 @@
 
    Version 1.0 : Turbo Pascal, July 1989  (see unit XLongInt)
    Version 2.0 : Delphi 10, June 2018
-   last modified: July 2022
+   last modified: December 2025
   *)
 
 unit XMathUtils;
@@ -78,11 +78,13 @@ type
     function IsOdd : boolean;
     function High : cardinal;
     function ToString (GroupSep : char = #0) : string;
-    function ToHex : string;
+    function ToHex (GroupSep : char = #0) : string;
     end;
 
 function TryStrToXLong (const s : string; var Value : TXLongWord) : boolean;
 function StrToXLong (const s : string) : TXLongWord;
+function TryHexToXLong (const s : string; var Value : TXLongWord) : boolean;
+function HexToXLong (const s : string) : TXLongWord;
 
 function XDivMod (const ValM,ValD : TXLongWord; var ValR : TXLongWord) : TXLongWord;
 function XMulDiv (const Value,Numerator,Denominator : TXLongWord) : TXLongWord;
@@ -538,25 +540,28 @@ begin
     repeat
       a:=XDivMod(a,b,c);
       Result:=chr(byte(c)+48)+Result;
-      if (GroupSep<>#0) and (n mod 3=2) then Result:=GroupSep+Result;
+      if (a.XLen>0) and (GroupSep<>#0) and (n mod 3=2) then Result:=GroupSep+Result;
       inc(n);
       until a.XLen=0;
     a.SetToZero; b.SetToZero; c.SetToZero;
     end;
   end;
 
-function TXLongWord.ToHex : string;
+function TXLongWord.ToHex (GroupSep : char) : string;
 var
   a,b,c : TXLongWord;
+  n     : integer;
 begin
   if XLen=0 then Result:='0'
   else begin
     a.Assign(self); b:=16;
-    Result:='';
+    Result:=''; n:=0;
     repeat
       a:=XDivMod(a,b,c);
       if c<10 then Result:=chr(byte(c)+48)+Result
       else Result:=chr(byte(c)+55)+Result;
+      if (a.XLen>0) and (GroupSep<>#0) and (n mod 2=1) then Result:=GroupSep+Result;
+      inc(n);
       until a.XLen=0;
     a.SetToZero; b.SetToZero; c.SetToZero;
     end;
@@ -569,16 +574,41 @@ var
 begin
   n:=length(s); Value:=0;
   Result:=n>0;
-  if Result then for i:=1 to n do begin
-    Result:=IsNumber(s[i]);
-    if Result then Value:=10*Value+StrToInt(s[i])
-    else Break;
+  if Result then begin
+    if s[1]='$' then Result:=TryHexToXLong(copy(s,2,n),Value)
+    else for i:=1 to n do if (s[i]<>#$20) then begin  // overread spaces
+      Result:=IsNumber(s[i]);
+      if Result then Value:=10*Value+StrToInt(s[i])
+      else Break;
+      end;
     end;
   end;
 
 function StrToXLong (const s : string) : TXLongWord;
 begin
   if not TryStrToXLong(s,Result) then ConvertError(s);
+  end;
+
+function TryHexToXLong (const s : string; var Value : TXLongWord) : boolean;
+var
+  i,n : integer;
+  c : Char;
+begin
+  n:=length(s); Value:=0;
+  Result:=n>0;
+  if Result then for i:=1 to n do begin
+    c:=s[i].ToUpper;
+    if (c<>#$20) then begin  // overread spaces
+      Result:=IsNumber(c) or ((c>='A') and (c<='F'));
+      if Result then Value:=16*Value+StrToInt('$'+c)
+      else Break;
+      end
+    end;
+  end;
+
+function HexToXLong (const s : string) : TXLongWord;
+begin
+  if not TryHexToXLong(s,Result) then ConvertError(s);
   end;
 
 // ----------------------------------------------------------------
